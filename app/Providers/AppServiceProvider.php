@@ -11,7 +11,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind('shop', function ($app) {
+            return new \App\Services\ShopManager(
+                $app->make(\App\Services\CartService::class),
+                $app->make(\App\Services\CheckoutService::class)
+            );
+        });
     }
 
     /**
