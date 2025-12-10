@@ -2,18 +2,21 @@
 
 namespace App\Services;
 
-// use Dompdf\Dompdf;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\Order;
 
 class InvoiceService
 {
-    public function generatePdf($order, $greenterData)
+    public function generatePdf(Order $order)
     {
-        // $dompdf = new Dompdf();
-        // $html = view('invoices.default', compact('order', 'greenterData'))->render();
-        // $dompdf->loadHtml($html);
-        // $dompdf->render();
-        // return $dompdf->output();
+        // Datos simulados de Greenter si no existen en la orden
+        $greenterData = [
+            'hash' => $order->payment_info['hash'] ?? 'N/A',
+            'cdr' => 'Aceptado'
+        ];
 
-        return "Contenido binario del PDF simulado para la orden " . $order->id;
+        $pdf = Pdf::loadView('pdf.invoice', compact('order', 'greenterData'));
+        
+        return $pdf->stream('invoice-' . $order->id . '.pdf');
     }
 }

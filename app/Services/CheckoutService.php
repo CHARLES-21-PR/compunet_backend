@@ -77,8 +77,13 @@ class CheckoutService
                     // 6. Descontar Stock
                     $this->inventoryService->decrementStock($order->id);
 
-                    // 7. Facturación (Opcional)
-                    // $this->greenterService...
+                    // 7. Facturación (Simulación SUNAT)
+                    $greenterResponse = $this->greenterService->emitirComprobante($order);
+                    
+                    // Guardar hash/cdr en payment_info o en una tabla invoices
+                    $paymentInfo = $order->payment_info ?? [];
+                    $paymentInfo['sunat'] = $greenterResponse;
+                    $order->update(['payment_info' => $paymentInfo]);
                 }
 
             } catch (Exception $e) {

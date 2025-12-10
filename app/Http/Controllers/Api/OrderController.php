@@ -43,16 +43,22 @@ class OrderController extends Controller
                     $total += $item['price'] * $item['quantity'];
                 }
 
+                $paymentMethod = $request->input('paymentMethod');
+                $status = ($paymentMethod === 'tarjeta') ? 'Pagado' : 'Pendiente';
+
+                // Intentar obtener usuario del token Sanctum explícitamente
+                $user = auth('sanctum')->user();
+
                 $order = Order::create([
-                    'user_id' => Auth::id(), // Null si es invitado
+                    'user_id' => $user ? $user->id : null,
                     'customer_name' => $billing['name'],
                     'customer_email' => $billing['email'],
                     'customer_document_type' => $billing['document_type'] ?? null,
                     'customer_document_number' => $billing['document_number'] ?? null,
                     'customer_address' => $billing['address'],
                     'total' => $total,
-                    'status' => 'Pendiente',
-                    'payment_method' => $request->input('paymentMethod'),
+                    'status' => $status,
+                    'payment_method' => $paymentMethod,
                     'payment_info' => $request->input('paymentData'),
                 ]);
 
@@ -84,10 +90,17 @@ class OrderController extends Controller
     {
         $query = Order::with('items');
 
+        // Si el usuario no es admin, ver solo sus pedidos
+        if ($request->user()->role !== 'admin') {
+            $query->where('user_id', $request->user()->id);
+        }
+
         if ($request->has('search')) {
             $search = $request->search;
-            $query->where('customer_name', 'like', "%{$search}%")
+            $query->where(function($q) use ($search) {
+                $q->where('customer_name', 'like', "%{$search}%")
                   ->orWhere('id', $search);
+            });
         }
 
         $orders = $query->latest()->paginate(10);
@@ -98,9 +111,15 @@ class OrderController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $order = Order::with(['items.product', 'user'])->findOrFail($id);
+
+        // Verificar permisos: Admin o dueño del pedido
+        if ($request->user()->role !== 'admin' && $order->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'No autorizado'], 403);
+        }
+
         return response()->json($order);
     }
 
@@ -110,7 +129,7 @@ class OrderController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
-            'status' => 'required|string|in:Pendiente,Procesando,Completado,Cancelado',
+            'status' => 'required|string|in:Pendiente,Pagado,Procesando,Completado,Cancelado',
         ]);
 
         $order = Order::findOrFail($id);

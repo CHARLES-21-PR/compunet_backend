@@ -8,9 +8,24 @@ class ShopManager
 {
     public function __construct(
         protected CartService $cartService,
-        protected CheckoutService $checkoutService
+        protected CheckoutService $checkoutService,
+        protected GreenterService $greenterService,
+        protected InvoiceService $invoiceService,
+        protected InventoryService $inventoryService,
+        protected PaymentService $paymentService,
+        protected ShippingService $shippingService
     ) {}
 
+    // Accessors for Services
+    public function cart() { return $this->cartService; }
+    public function checkoutService() { return $this->checkoutService; }
+    public function greenter() { return $this->greenterService; }
+    public function invoice() { return $this->invoiceService; }
+    public function inventory() { return $this->inventoryService; }
+    public function payment() { return $this->paymentService; }
+    public function shipping() { return $this->shippingService; }
+
+    // Facade Methods (Delegation)
     public function getCart()
     {
         return $this->cartService->getCart();
@@ -31,7 +46,7 @@ class ShopManager
         $this->cartService->clear();
     }
 
-    public function checkout(array $data)
+    public function processCheckout(array $data)
     {
         // Extraer datos necesarios del request
         $paymentMethod = $data['payment_method'];
