@@ -9,6 +9,8 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Exports\OrdersExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class OrderController extends Controller
 {
@@ -106,6 +108,18 @@ class OrderController extends Controller
         $orders = $query->latest()->paginate(10);
 
         return response()->json($orders);
+    }
+
+    /**
+     * Export orders to Excel.
+     */
+    public function export(Request $request)
+    {
+         if ($request->user()->role !== 'admin') {
+             return response()->json(['message' => 'No autorizado'], 403);
+        }
+
+        return Excel::download(new OrdersExport($request->all()), 'pedidos.xlsx');
     }
 
     /**

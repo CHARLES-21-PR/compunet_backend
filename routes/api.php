@@ -27,6 +27,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/checkout', [CheckoutController::class, 'process']);
 
     // Pedidos (Ver historial propio o todo si es admin)
+    Route::get('/orders/export', [OrderController::class, 'export']); // Exportar antes de {id} para evitar conflicto
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{id}', [OrderController::class, 'show']);
     Route::get('/orders/{id}/pdf', [InvoiceController::class, 'download']);
