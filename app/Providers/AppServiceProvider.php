@@ -11,6 +11,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Registrar CartService como Singleton
+        $this->app->singleton(\App\Services\CartService::class, function ($app) {
+            return new \App\Services\CartService();
+        });
+
         $this->app->bind('shop', function ($app) {
             return new \App\Services\ShopManager(
                 $app->make(\App\Services\CartService::class),

@@ -9,6 +9,73 @@ use App\Models\Product;
 class CartService
 {
     protected $cartKey = 'shopping_cart';
+    
+    // Propiedades para el manejo del estado en la solicitud (Singleton)
+    protected $items = [];
+    protected $subtotal = 0;
+    protected $igv = 0;
+    protected $total = 0;
+
+    /**
+     * Carga los items recibidos del request y recalcula con precios reales de la BD.
+     * @param array $requestItems Lista de items con ['id' => int, 'quantity' => int]
+     */
+    public function loadItems(array $requestItems)
+    {
+        $this->items = [];
+        $this->subtotal = 0;
+        $this->igv = 0;
+        $this->total = 0;
+
+        foreach ($requestItems as $item) {
+            $product = Product::find($item['id']);
+            
+            if ($product) {
+                $quantity = (int) $item['quantity'];
+                $price = (float) $product->price;
+                $subtotalItem = $price * $quantity;
+
+                $this->items[] = [
+                    'product_id' => $product->id,
+                    'name' => $product->name,
+                    'price' => $price,
+                    'quantity' => $quantity,
+                    'subtotal' => $subtotalItem
+                ];
+
+                $this->total += $subtotalItem;
+            }
+        }
+
+        // Calcular IGV y Subtotal (Asumiendo que el precio incluye IGV o se calcula aparte)
+        // En Perú, generalmente el precio mostrado incluye IGV.
+        // Subtotal = Total / 1.18
+        // IGV = Total - Subtotal
+        $this->subtotal = $this->total / 1.18;
+        $this->igv = $this->total - $this->subtotal;
+    }
+
+    public function getItems()
+    {
+        return $this->items;
+    }
+
+    public function getTotal()
+    {
+        return round($this->total, 2);
+    }
+
+    public function getSubtotal()
+    {
+        return round($this->subtotal, 2);
+    }
+
+    public function getIgv()
+    {
+        return round($this->igv, 2);
+    }
+
+    // --- Métodos Legacy (Sesión) ---
 
     public function getCart()
     {
@@ -53,24 +120,6 @@ class CartService
         if (Auth::check()) {
             // Limpiar BD
         }
-    }
-
-    public function getSubtotal(): float
-    {
-        $cart = $this->getCart();
-        return array_reduce($cart, function ($carry, $item) {
-            return $carry + ($item['price'] * $item['quantity']);
-        }, 0);
-    }
-
-    public function getIgv(): float
-    {
-        return $this->getSubtotal() * 0.18;
-    }
-
-    public function getTotal(): float
-    {
-        return $this->getSubtotal() + $this->getIgv();
     }
 
     protected function saveCart($cart)

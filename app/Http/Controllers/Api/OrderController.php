@@ -11,9 +11,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Exports\OrdersExport;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Services\CartService;
 
 class OrderController extends Controller
 {
+    protected $cartService;
+
+    public function __construct(CartService $cartService)
+    {
+        $this->cartService = $cartService;
+    }
+
     /**
      * Store a newly created resource in storage.
      * Public endpoint for Checkout.
@@ -30,20 +38,18 @@ class OrderController extends Controller
             'items' => 'required|array|min:1',
             'items.*.id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
-            'items.*.price' => 'required|numeric|min:0',
         ]);
 
         try {
             return DB::transaction(function () use ($request) {
                 $billing = $request->input('billingData');
-                $items = $request->input('items');
                 
-                // Calcular total real desde el backend para seguridad (opcional pero recomendado)
-                // Aquí usaremos el enviado o recalcularemos. Recalculando es mejor.
-                $total = 0;
-                foreach ($items as $item) {
-                    $total += $item['price'] * $item['quantity'];
-                }
+                // 1. Cargar items en el CartService (Singleton) para validación y cálculo
+                $this->cartService->loadItems($request->input('items'));
+                
+                // 2. Obtener totales calculados por el backend
+                $total = $this->cartService->getTotal();
+                $items = $this->cartService->getItems(); // Items con precios reales
 
                 $paymentMethod = $request->input('paymentMethod');
                 $status = ($paymentMethod === 'tarjeta') ? 'Pagado' : 'Pendiente';
@@ -58,7 +64,7 @@ class OrderController extends Controller
                     'customer_document_type' => $billing['document_type'] ?? null,
                     'customer_document_number' => $billing['document_number'] ?? null,
                     'customer_address' => $billing['address'],
-                    'total' => $total,
+                    'total' => $total, // Usamos el total calculado por el backend
                     'status' => $status,
                     'payment_method' => $paymentMethod,
                     'payment_info' => $request->input('paymentData'),
@@ -67,10 +73,10 @@ class OrderController extends Controller
                 foreach ($items as $item) {
                     OrderItem::create([
                         'order_id' => $order->id,
-                        'product_id' => $item['id'],
+                        'product_id' => $item['product_id'],
                         'quantity' => $item['quantity'],
                         'price' => $item['price'],
-                        'subtotal' => $item['price'] * $item['quantity'],
+                        'subtotal' => $item['subtotal'],
                     ]);
                     
                     // Opcional: Descontar stock aquí
